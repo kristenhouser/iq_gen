@@ -1,7 +1,17 @@
 /******************************************************************************
 IQ GEN TEST SCRIPT
 
-1/10/2018
+Commands:
+
+i: set phase of i and q to 0
+q: set phase of i to 0 and q to 90
+u: increase phase of q one degree
+U: increase phase of q five degrees
+d: decrease phase of q one degree
+U: decrease phase of q five degrees
+f float_value: change frequency to float_value
+
+1/18/2018
 ******************************************************************************/
 // Due to limitations in the Arduino environment, SPI.h must be included both
 //  in the library which uses it *and* any sketch using that library.
@@ -14,15 +24,13 @@ IQ GEN TEST SCRIPT
 #define ONE_D_SHIFT       (0.0174533) / .00153
 #define FIVE_D_SHIFT      (0.0872665) / .00153 
 
-// Create an instance of the MiniGen device; note that this has no provision for
-//  alternate CLK and MOSI pins, but you *can* pass it a different CS (or FSYNC,
-//  as it's referred to elsewhere) pin number.
 MiniGen i(10), q(9);    //check pins
 
 uint16_t i_phase = 0, q_phase = 0;
 
 static float frequency = 455000.0;   //455 kHz - goal frequency
 unsigned long freqReg;
+
 SoftwareSerial mySerial(0, 1); // RX, TX
 char serialData = 'x';
 
@@ -38,7 +46,8 @@ void setup()
   //  location. Note that since the AD9837 has no DOUT, we can't use the
   //  read-modify-write method of control. At power up, the output frequency
   //  will be 100Hz.
-
+  // initialize the pushbutton pin as an input:
+  pinMode(buttonPin, INPUT);
   i.reset();
   q.reset();
   delay(2000);
@@ -66,7 +75,7 @@ void setup()
 void loop()
 {
   // listen for commands and respond accordingly
-  if (Serial.available() > 0) {
+   if (Serial.available() > 0) {
     serialData = Serial.read();
     switch (serialData) {
       case 'i':
@@ -101,15 +110,23 @@ void loop()
         decrementPhase(FIVE_D_SHIFT);   
         break;
       }
+      case 'f':
+      {
+        frequency = Serial.parseFloat();
+        if (newFrequency >= 0 && newFrequency < 3e6)
+        {
+          freqReg = i.freqCalc(frequency);
+          i.adjustFreq(MiniGen::FREQ0, freqReg);
+          q.adjustFreq(MiniGen::FREQ0, freqReg);           
+        }
+      }
       default:
         break;
     }
-
   } 
+
 }
 
-//TODO: phase_reg
-//TODO: error check
 void setPhase(int new_i_phase, int new_q_phase) {
   i_phase = new_i_phase;
   q_phase = new_q_phase;
@@ -118,44 +135,36 @@ void setPhase(int new_i_phase, int new_q_phase) {
   i.selectPhaseReg(MiniGen::PHASE0);
   i.adjustPhaseShift(MiniGen::PHASE0, i_phase);  
 
-  i.selectPhaseReg(MiniGen::PHASE1);
-  i.adjustPhaseShift(MiniGen::PHASE1, i_phase);
-
   // chip select q
   q.selectPhaseReg(MiniGen::PHASE0);
   q.adjustPhaseShift(MiniGen::PHASE0, q_phase);
-
-  q.selectPhaseReg(MiniGen::PHASE1);
-  q.adjustPhaseShift(MiniGen::PHASE1, q_phase);
 }
 
-//TODO: error check
 void incrementPhase(uint16_t shift) {
   // TODO: shouldn't fail quietly, just do the math to wrap around
   if (q_phase + shift < 4096)
     q_phase += shift;
+  else {
+    q_phase = shift - (4096 - q_phase);
+  }
 
   Serial.println(q_phase * .00153 , DEC);
 
   q.selectPhaseReg(MiniGen::PHASE0);
   q.adjustPhaseShift(MiniGen::PHASE0, q_phase);  
-
-  q.selectPhaseReg(MiniGen::PHASE1);
-  q.adjustPhaseShift(MiniGen::PHASE1, q_phase);  
 }
 
-//TODO: error check
 void decrementPhase(uint16_t shift) {
   // TODO: shouldn't fail quietly, just do the math to wrap around
   if (q_phase - shift >= 0)
     q_phase -= shift;
+  else {
+    q_phase = 4096 - (shift - q_phase);
+  }
 
   Serial.println(q_phase * .00153 , DEC);
 
   q.selectPhaseReg(MiniGen::PHASE0);
-  q.adjustPhaseShift(MiniGen::PHASE0, q_phase);  
-
-  q.selectPhaseReg(MiniGen::PHASE1);
-  q.adjustPhaseShift(MiniGen::PHASE1, q_phase);  
+  q.adjustPhaseShift(MiniGen::PHASE0, q_phase);   
 }
 

@@ -140,9 +140,9 @@ void MiniGen::adjustPhaseShift(PHASEREG reg, uint16_t newPhase)
   newPhase &= ~0xF000;
   // Now, we need to set the top three bits to properly route the data.
   //  D15:D13 = 110 for PHASE0...
-  if (reg == PHASE0) newPhase |= 0xC000; //0b1100
+  if (reg == PHASE0) newPhase |= 0xC000; 
   // ... and D15:D13 = 111 for PHASE1.
-  else               newPhase |= 0xE000; //0b1110
+  else               newPhase |= 0xE000; 
   SPIWrite(newPhase);
 }
 
