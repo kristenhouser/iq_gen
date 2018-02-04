@@ -165,23 +165,22 @@ void setPhase(int new_i_phase, int new_q_phase) {
   spiSendValue(q_phase);
 }
 
-void incrementPhase(uint16_t shift) {
+void incrementPhase(int16_t shift) {
   // TODO: shouldn't fail quietly, just do the math to wrap around
+  Serial.println(q_phase + shift, 1);
   if (q_phase + shift < 4096)
     q_phase += shift;
   else {
     q_phase = shift - (4096 - q_phase);
   }
 
-  Serial.println((q_phase * .00153) * (180/3.14), 1);
-
   q.selectPhaseReg(MiniGen::PHASE0);
   q.adjustPhaseShift(MiniGen::PHASE0, q_phase);  
 
-  updateQuadDisplay((q_phase * .00153) * (180/3.14));
+  updateQuadDisplay();
 }
 
-void decrementPhase(uint16_t shift) {
+void decrementPhase(int16_t shift) {
   // TODO: shouldn't fail quietly, just do the math to wrap around
   //Serial.println();
 
@@ -190,18 +189,21 @@ void decrementPhase(uint16_t shift) {
   else 
     q_phase = 4096 - (q_phase + shift);
 
-  Serial.println((q_phase * .00153) * (180/3.14), 1);
-
   q.selectPhaseReg(MiniGen::PHASE0);
   q.adjustPhaseShift(MiniGen::PHASE0, q_phase);   
 
-  updateQuadDisplay(((q_phase * .00153) * (180/3.14)));
+  updateQuadDisplay();
 }
 
-void updateQuadDisplay(float shift) {
+void updateQuadDisplay(void) {
+  static int16_t = 90;
+  int16_t i_phase_degrees = (q_phase * .00153) * (180/3.14);
+  int16_t q_phase_degrees =  (q_phase * .00153) * (180/3.14);
+
+  int16_t quad_output_degrees = (q_phase_degrees - i_phase_degrees) - 90;
   SPI.setDataMode(SPI_MODE2);  
 
-  spiSendValue(shift);
+  spiSendValue(quad_output_degrees);
 }
 
 //Given a number, spiSendValue chops up an integer into four values and sends them out over spi
